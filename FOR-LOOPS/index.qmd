@@ -1,0 +1,483 @@
+---
+title: "Comparison of `for` loops from various programming languages"
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+knitr::knit_engines$set(extendrsrc = rextendr::eng_extendrsrc)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+#| message: false
+names(knitr::knit_engines$get())
+```
+
+(Notice that some of the programming languages are not used in this example.
+I only used those languages that can be used in computing and listed in `knitr`.)
+
+In this activity, I show you the programming languages that can be used in computing with the use of `for` loops. 
+
+Note that not all the programming languages are listed in this example because these are all the programming languages I know that can be exported into R.
+
+Here are the list of languages will be used in this activity:
+
+1.  C
+    -   C is maybe the easiest *compiled* language to learn. It is so easy to compile a C code into R.
+2.  C++
+    -   Despite its reputation for complexity, leveraging tools like Rcpp and its APIs makes writing C++ code more accessible. Plus, exporting C++ code into the R environment is a breeze, even I, who sometimes write a bad code, can write a C++ code and it is so easy to export a C++ code into R environment.
+    -   Compared to C, compilation in C++ might take a bit longer due to various factors.
+    -   with the Rcpp namespace, you can seamlessly integrate C++ features like *NumericVector* and *DataFrame*, mirroring R's class system.
+3.  Julia
+    -   Julia shares similarities with C in that it's a compiled language, effectively addressing the "2 language problem" by eliminating the need for separate languages like C, C++, or FORTRAN APIs.
+    -   Julia is able to be both fast and also easy to read.
+4.  Rust
+    -   Rust, akin to C/C++, prioritizes memory safety. 
+    -   Preparing to compile Rust code in R involves installing necessary Build Tools and rustc cargo via the terminal.
+5.  FORTRAN
+    -   Despite its age, FORTRAN remains indispensable in the realm of computing, boasting speed comparable to C/C++. 
+    -   It's still widely used as *source* code for R packages, *fAsianOptions* as its example.
+6.  R
+    -   While maybe R isn't exclusively utilized for computing, it's a statistical computing language widely embraced in statistical analysis.
+    -   With R, it is so easy to conduct a pure data science like data manipulation and visulizations, thanks to the libraries, such as *dplyr* and *ggplot2*, and to integrate "structured" databases with *DBI* and *dbplyr*.
+    
+7.  Python
+    -   Python is an effective general purpose language that can be even used in statistics or any fields of computing.
+
+They are all high level languages (or I should say some of them are close to high level languages) and share similarities.
+I only used those languages that can be both used in computing and listed in `knitr`.
+
+## Approximating $\pi$
+
+::: {.panel-tabset group="language"}
+
+### C
+
+If your purpose is a language for computing within R, C is maybe easier than C++ but in order this to be working and exportable, the result of the computation is needed to store the memory address, a.k.a. the pointers.
+
+```{c}
+#include <stdio.h>
+
+void pi_approx_c(int *n, double *result) {
+  double pi_4 = 0;
+  double sign = 1;
+  
+  for (int i = 1; i <= *n; i++) {
+    pi_4 += sign / (2 * i - 1);
+    sign *= -1;
+  }
+  
+  *result = 4 * pi_4;
+}
+
+```
+
+In order to natively call the C code into R, use `.C` and then extract the result via `$res`.
+
+```{r}
+pi_approx_c <- function(n) {
+  res <- .C("pi_approx_c", as.integer(n), res=numeric(1))$res
+  return(res)
+}
+
+pi_approx_c(1e5)
+
+```
+
+### C++
+
+Here, the C++ code is way similar to the C code except, we don't need to use *pointers* in order the result to store its memory address. Like I said, using Rcpp, the C++ code is so easy to be exported, as long as its error-free.
+
+After compiling, you don't need to call it and the `pi_approx_cpp` will be saved into R Global Environment directly.
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double pi_approx_cpp(int n) {
+  double pi_4 = 0;
+  double sign = 1;
+  
+  for (int i = 1; i <= n; i++) {
+    pi_4 += sign / (2 * i - 1);
+    sign *= -1;
+  }
+  
+  return 4 * pi_4;
+}
+
+/***R
+pi_approx_cpp(1e5)
+*/
+
+
+```
+
+### Julia
+
+As you can see, we only write few codes, unlike in C/C++, to approximate the $\pi$
+
+```{julia}
+function pi_approx_jl(n)
+    pi_4 = 0.0
+    sign = 1.0
+    for i in 1:n
+        pi_4 += sign / (2*i - 1)
+        sign *= -1
+    end
+    return 4 * pi_4
+end
+```
+
+With *JuliaCall*, you can call the Julia function into R via `julia_eval`. But there are few other ways to call it, but I found `julia_eval` more convenient.
+
+```{r}
+pi_approx_jl <- JuliaCall::julia_eval("pi_approx_jl")
+pi_approx_jl(1e5)
+```
+
+### Rust
+
+Here, we use the `extendr` API to compile the Rust code into R, just like we did with Rcpp to compile the C++ code into R.
+
+```{extendrsrc}
+use extendr_api::prelude::*;
+
+#[extendr]
+fn pi_approx_rs(n: i32) -> f64 {
+    let mut pi_4 = 0.0;
+    let mut sign = 1.0;
+    
+    for i in 1..=n {
+        pi_4 += sign / (2 * i - 1) as f64;
+        sign *= -1.0;
+    }
+    
+    4.0 * pi_4
+}
+```
+
+After compiling, just like C++, the `pi_approx_rs` function in Rust will be saved into R Global Environment directly. 
+
+```{r}
+pi_approx_rs(1e5)
+```
+
+### FORTRAN
+
+Maybe FORTRAN is fast, but the solution is more boilerplate, although for me it is more readable compared to C/C++. Just like C, we need the result to be store in memory address.
+
+If you use old FORTRAN version, you might need to CAPITALIZE the FORTRAN program. But we use the '95 version of FORTRAN so we don't need to CAPITALIZE the program.
+
+```{fortran95}
+subroutine pi_approx(n, result)
+    implicit none
+    integer, intent(in) :: n
+    real(8), intent(out) :: result
+    integer :: i
+    real(8) :: pi_4, sign
+    
+    pi_4 = 0.0
+    sign = 1.0
+    
+    do i = 1, n
+        pi_4 = pi_4 + sign / (2 * i - 1)
+        sign = sign * (-1.0)
+    end do
+    
+    result = 4 * pi_4
+end subroutine pi_approx
+```
+
+Just like C, but instead, in order to natively call the FORTRAN code into R, use `.Fortran` and then extract the result via `$result`.
+
+```{r}
+pi_approx_fortran <- function(n) {
+  result <- .Fortran("pi_approx", as.integer(n), result=double(1))$result
+  return(result)
+}
+
+pi_approx_fortran(1e5)
+
+```
+
+### R
+
+R is so close to be functional programming and to be Domain Specific Language (or DSL). It is so functional, you need to use ` <- function()` to define a function and I sometimes agree that this is ugly but hey it works! This is just my opinion.
+
+R is already a default language in RStudio, so the function we define is already callable in R Global Environment.
+
+```{r}
+pi_approx_r <- function(n) {
+  pi_4 <- 0
+  sign <- 1
+  
+  for (i in 1:n) {
+    pi_4 <- pi_4 + sign / (2*i - 1)
+    sign <- sign * -1
+  }
+  
+  return(4 * pi_4)
+}
+
+pi_approx_r(1e5)
+
+```
+
+### Python
+
+R and Python has so much similarities, except Python is more onto general purpose language.
+
+
+```{python}
+def pi_approx_py(n):
+    n = int(n)
+    pi_4 = 0
+    sign = 1
+    
+    for i in range(1, n + 1):
+        pi_4 += sign / (2 * i - 1)
+        sign *= -1
+    return pi_4 * 4
+
+```
+
+The defined function in Python is also callable. Using `py` module in `reticulate` package, you can easily interact with any Python objects in Python module.
+
+```{r}
+pi_approx_py <- reticulate::py$pi_approx_py
+pi_approx_py(1e5)
+```
+
+### Benchmarks
+
+```{r}
+pi_approx_bm <- bench::mark(
+  C = pi_approx_c(1e8),
+  Cpp = pi_approx_cpp(1e8),
+  Julia = pi_approx_jl(1e8),
+  Rust = pi_approx_rs(1e8),
+  FORTRAN = pi_approx_fortran(1e8),
+  R = pi_approx_r(1e8),
+  Python = pi_approx_py(1e8),
+  check = F
+)
+pi_approx_bm
+
+pi_approx_bm |> plot()
+```
+
+From this result, we can say that the C++ is the fastest language among the 7 languages I selected for computing in using `for` loops, following with C and FORTRAN.
+
+:::
+
+
+## Recursive Fibonacci Sequence
+
+::: {.panel-tabset group="language"}
+
+### C
+
+```{c}
+#include <R.h>
+#include <Rinternals.h>
+
+void fib_c(int *n, int *seq) {
+    seq[0] = 0;
+    if (*n > 0) {
+        seq[1] = 1;
+        for (int i = 2; i <= *n; ++i) {
+            seq[i] = seq[i - 1] + seq[i - 2];
+        }
+    }
+}
+
+```
+
+
+```{r}
+fib_c <- function(n) {
+  seq <- integer(n + 1)
+  .C("fib_c", n = as.integer(n), seq = as.integer(seq))$seq
+}
+fib_c(10)
+```
+
+
+### C++
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+IntegerVector fib_cpp(int n){
+  IntegerVector fibSequence(n + 1);
+  fibSequence[0] = 0;
+  if (n > 1) {
+    fibSequence[1] = 1;
+    for (int i = 2; i <= n; ++i) {
+      fibSequence[i] = fibSequence[i - 1] + fibSequence[i - 2];
+    }
+  }
+  return fibSequence;
+  
+}
+
+
+/***R
+fib_cpp(10)
+*/
+```
+
+### Julia
+
+```{julia}
+function fib_jl(n::Int)
+  fib = Int[]
+  push!(fib, 0)  
+  push!(fib, 1)  
+  
+  
+  for i in 3:n
+      push!(fib, fib[i - 1] + fib[i - 2])  
+  end
+  
+  return fib
+end
+```
+
+```{r}
+fib_jl <- JuliaCall::julia_eval("fib_jl")
+fib_jl(10L)
+```
+
+
+
+### Rust
+
+```{extendrsrc}
+use extendr_api::prelude::*;
+use std::collections::HashMap;
+
+fn fibonacci(n: i32, memo: &mut HashMap<i32, i32>) -> i32 {
+    if let Some(&result) = memo.get(&n) {
+        return result;
+    }
+
+    let result = if n <= 1 {
+        n
+    } else {
+        fibonacci(n - 1, memo) + fibonacci(n - 2, memo)
+    };
+
+    memo.insert(n, result);
+    result
+}
+
+#[extendr]
+fn fib_rs(n: i32) -> Vec<i32> {
+    let mut sequence = vec![];
+    let mut memo = HashMap::new();
+
+    for i in 0..n + 1 {
+        sequence.push(fibonacci(i, &mut memo));
+    }
+
+    sequence
+}
+
+```
+
+```{r}
+fib_rs(10)
+```
+
+
+### FORTRAN
+
+```{fortran95}
+subroutine fib_f(n, fib)
+    integer, intent(in) :: n
+    integer, intent(out) :: fib(n)
+    integer :: i
+    
+    fib(1) = 0
+    fib(2) = 1
+
+    do i = 3, n + 1
+        fib(i) = fib(i-1) + fib(i-2)
+    end do
+
+end subroutine fib_f
+```
+
+
+```{r}
+fib_fortran <- function(n) {
+  n <- n + 1
+  .Fortran("fib_f", as.integer(n), fib = integer(n))$fib
+}
+fib_fortran(10)
+```
+
+
+### R
+
+```{r}
+fib_r <- function(n) {
+  fib <- integer(n + 1)
+  fib[1] <- 0
+  fib[2] <- 1
+  for (i in 3:(n+1)) {
+    fib[i] <- fib[i - 1] + fib[i - 2]
+  }
+  return(fib)
+}
+
+fib_r(10)
+```
+
+
+### Python
+
+```{python}
+def fib_p(n):
+    n = int(n)
+    fib_seq = [0, 1]
+    for i in range(2, n + 1):
+        fib_seq.append(fib_seq[-1] + fib_seq[-2])
+    return fib_seq
+
+
+
+```
+
+```{r}
+fib_py <- reticulate::py$fib_p
+fib_py(10)
+```
+
+
+### Benchmarks
+
+```{r}
+bench::mark(
+  C = fib_c(40),
+  Cpp = fib_cpp(40),
+  Julia = fib_jl(41L),
+  Rust = fib_rs(40),
+  FORTRAN = fib_fortran(40),
+  R = fib_r(40),
+  Python = fib_py(40),
+  check = F
+)
+```
+
+
+:::
+
